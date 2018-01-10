@@ -89,6 +89,11 @@ JsonWrapper JsonWrapper::operator[](int index)  {
         val = root;
     }
 
+    if(val->IsNull())
+    {
+        val->SetArray();
+    }
+
     JsonWrapper ret;
     ret.root = root;
 
@@ -117,6 +122,11 @@ JsonWrapper JsonWrapper::operator[](const char *index)  {
         //初始化root为对象类型
         root = new Document(kObjectType);
         val = root;
+    }
+
+    if(val->IsNull())
+    {
+        val->SetObject();
     }
 
     JsonWrapper ret;
@@ -179,7 +189,9 @@ const char *JsonWrapper::ToString() {
     if(!val)
         return "";
 
-    buffer = new StringBuffer();
+    if(!buffer)
+        buffer = new StringBuffer();
+    buffer->Clear();
     Writer<StringBuffer> writer(*buffer);
     val->Accept(writer);
     return buffer->GetString();
