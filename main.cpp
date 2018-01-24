@@ -10,7 +10,7 @@ using namespace std;
 int main()
 {
     JsonWrapper w, w1, w2;
-    w.Prase("[1]");
+    w.Parse("[1]");
     cout<<w[0].GetInt()<<endl;
 
     w[1] = "2";

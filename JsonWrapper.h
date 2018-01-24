@@ -7,11 +7,17 @@
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
+
 
 class JsonWrapper
 {
+private:
+    //为了效率，禁用默认拷贝函数  防止成为函数返回值等操作
+    JsonWrapper(const JsonWrapper&) {}
+
 public:
-    JsonWrapper();;
+    JsonWrapper();
 
     ~JsonWrapper();
 
@@ -38,13 +44,22 @@ public:
     //读取数据
     int GetInt();
     const char* GetString();
+    uint32_t GetStringLength();
     int64_t GetInt64();
     double GetDouble();
 
+    //对象是否含有属性
+    bool HasMember(const char* index);
+
+    //数组的长度
+    size_t Size();
+
     //解析
-    bool Prase(const char* str);
+    bool Parse(const char *str);
     //转换成json字符串
     const char* ToString();
+
+    rapidjson::Document * GetObject();
 
 private:
     rapidjson::Value* val;
@@ -55,3 +70,4 @@ private:
 
 
 #endif //IP_BASE_JSONWRAPPER_H
+
