@@ -14,50 +14,49 @@ JsonWrapper::JsonWrapper():val(nullptr), root(nullptr), buffer(nullptr){
 
 }
 
-JsonWrapper::~JsonWrapper() {
-    //销毁的是root节点，需要清除内存
-    if (val == root)
-    {
-        delete root;
-    }
+JsonWrapper::JsonWrapper(const JsonWrapper &r):buffer(nullptr) {
+    //root初始为空
+    root = r.root;
+    val = r.val;
+}
 
+//纯深拷贝
+JsonWrapper::JsonWrapper(JsonWrapper *rhs): buffer(nullptr) {
+    _CreateDocument();
+    if(rhs)
+        val->CopyFrom(*rhs->val, root->GetAllocator());
+}
+
+JsonWrapper::~JsonWrapper() {
     if(buffer)
     {
         delete buffer;
     }
 }
 
-JsonWrapper &JsonWrapper::operator=(JsonWrapper &rhs) {
+JsonWrapper &JsonWrapper::operator=(const JsonWrapper &r) {
     if(!root)
     {
-        //root为空，视为纯赋值
-        val = rhs.val;
-        root = rhs.root;
-        //原右值应为空
-        rhs.root = nullptr;
-        rhs.val = nullptr;
+        //root 为空，则可以只需要复制地址
+        root = r.root;
+        val = r.val;
     }
-    else
-    {
-        //root不为空, 则只移动数据到左值
-        //注意： 移动后rhs就会变成空json串,这是由于rappidjson追求效率的原因。
-        *val = *rhs.val;
-    }
-
+    else   //本身有值，则只能是拷贝
+        val->CopyFrom(*r.val, root->GetAllocator());
     return *this;
 }
 
 JsonWrapper &JsonWrapper::operator=(JsonWrapper *rhs)
 {
+    //规范操作，这里不能只拷贝root和val的指针
     if(!root)
     {
-        //root为空，视为纯赋值
-        root = new Document();
-        val = root;
+        _CreateDocument();
     }
 
-    //深拷贝, 这里rhs的值不变
-    val->CopyFrom(*rhs->val, root->GetAllocator());
+    //注意： 移动后rhs就会变成空json串,这是由于rappidjson追求效率的原因。
+    if(rhs)
+        *val = *rhs->val;
 
     return *this;
 }
@@ -75,6 +74,25 @@ JsonWrapper &JsonWrapper::operator=(int64_t value) {
     return *this;
 }
 
+
+JsonWrapper &JsonWrapper::operator=(uint32_t value) {
+    if(val)
+        val->SetUint(value);
+    return *this;
+}
+
+JsonWrapper &JsonWrapper::operator=(uint64_t value) {
+    if(val)
+        val->SetUint64(value);
+    return *this;
+}
+
+JsonWrapper &JsonWrapper::operator=(bool value) {
+    if(val)
+        val->SetBool(value);
+    return *this;
+}
+
 JsonWrapper &JsonWrapper::operator=(const char *value) {
     if(val)
         val->SetString(value, strlen(value), root->GetAllocator());
@@ -85,8 +103,7 @@ JsonWrapper JsonWrapper::operator[](int index)  {
     if(!root)
     {
         //初始化root为数组类型
-        root = new Document(kArrayType);
-        val = root;
+        _CreateDocument();
     }
 
     JsonWrapper ret;
@@ -120,8 +137,7 @@ JsonWrapper JsonWrapper::operator[](const char *index)  {
     if(!root)
     {
         //初始化root为对象类型
-        root = new Document(kObjectType);
-        val = root;
+        _CreateDocument();
     }
 
     JsonWrapper ret;
@@ -180,12 +196,30 @@ double JsonWrapper::GetDouble() {
     return 0;
 }
 
+uint32_t JsonWrapper::GetUInt() {
+    if(val && val->IsUint())
+        return val->GetUint();
+    return 0;
+}
+
+uint64_t JsonWrapper::GetUInt64() {
+    if(val && val->IsUint64())
+        return val->GetUint64();
+    return 0;
+}
+
+bool JsonWrapper::GetBool() {
+    if(val && val->IsBool())
+        return val->GetBool();
+    return false;
+}
+
+
 bool JsonWrapper::Parse(const char *str) {
-    root = new Document;
+    _CreateDocument();
     root->Parse(str);
     if(!root->HasParseError())
     {
-        val = root;
         return true;
     }
     return false;
@@ -211,6 +245,26 @@ bool JsonWrapper::HasMember(const char *index) {
     return val->HasMember(index);
 }
 
+bool JsonWrapper::RemoveMember(const char *index) {
+    if(!val)
+        return false;
+    return val->RemoveMember(index);
+}
+
+bool JsonWrapper::Empty() {
+    if(!root)
+        return true;
+
+    if(val->IsNull())
+        return true;
+
+    if(val->IsArray())
+        return val->Empty();
+
+    //其余情况视为有值
+    return false;
+}
+
 size_t JsonWrapper::Size() {
     if(!val)
         return 0;
@@ -223,13 +277,17 @@ size_t JsonWrapper::Size() {
     return val->Size();
 }
 
-rapidjson::Document *JsonWrapper::GetObject() {
+Document* JsonWrapper::GetObject() {
     if(!root)
     {
-        root = new Document;
-        val = root;
+        _CreateDocument();
     }
 
-    return root;
+    return (Document*)root.get();
+}
+
+void JsonWrapper::_CreateDocument() {
+    root = SDocument(new Document);
+    val = (Value*)root.get();
 }
 
